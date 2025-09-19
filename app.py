@@ -1,93 +1,142 @@
-
 import streamlit as st
-import joblib
-import numpy as np
 import pandas as pd
+import numpy as np
+import joblib
 import plotly.express as px
 
-# --- بالونات ---
-st.balloons()
+# ---------------------------
+# إعدادات الصفحة
+st.set_page_config(page_title="Heart Disease Prediction", page_icon="❤️", layout="wide")
 
-# --- CSS للحركات والألوان ---
-st.markdown("""
+# ---------------------------
+# CSS لتغيير الخلفية
+page_bg = """
 <style>
-/* خلفية متدرجة متحركة */
-.reportview-container {
-    background: linear-gradient(45deg, #f3ec78, #af4261, #4B4BFF, #4BFF4B);
-    background-size: 800% 800%;
-    animation: gradientBG 20s ease infinite;
+[data-testid="stAppViewContainer"] {
+    background-color: #f0f4f8; 
 }
-
-@keyframes gradientBG {
-    0% {background-position:0% 50%;}
-    50% {background-position:100% 50%;}
-    100% {background-position:0% 50%;}
+[data-testid="stHeader"] {
+    background-color: #d62828;
 }
-
-/* عنوان متغير اللون */
-h1, h2, h3 {
-  animation: color-change 6s infinite;
-}
-
-@keyframes color-change {
-  0% {color: #FF4B4B;}
-  25% {color: #FFB14B;}
-  50% {color: #4BFF4B;}
-  75% {color: #4B4BFF;}
-  100% {color: #FF4B4B;}
-}
-
-/* تنسيق الأزرار */
-.stButton>button {
-    background-color: #FF4B4B;
-    color: white;
-    border-radius: 12px;
-    font-size: 18px;
-    height: 3em;
-    width: 100%;
-    transition: 0.4s;
-}
-
-.stButton>button:hover {
-    background-color: #4B4BFF;
-    transform: scale(1.05);
+h1, h2, h3, h4 {
+    color: #333333;
 }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(page_bg, unsafe_allow_html=True)
 
-# --- العنوان ---
-st.title("💓 Heart Disease Risk Prediction (Colorful UI)")
+# ---------------------------
+# صورة قلب حقيقي
+st.image(
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Heart_anatomy_labeled.svg/1200px-Heart_anatomy_labeled.svg.png",
+    width=150,
+    caption="Heart Disease Prediction"
+)
 
-# --- تحميل النموذج ---
-model = joblib.load("models/final_model.pkl")
+st.title("💓 Heart Disease Prediction App")
 
-# --- إدخال البيانات من المستخدم ---
-st.header("Enter Patient Data:")
+# ---------------------------
+# تحميل الموديل مع حماية
+model_path = "models/final_model.pkl"
+try:
+    model = joblib.load(model_path)
+    model_loaded = True
+except FileNotFoundError:
+    st.error("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
+    model_loaded = False
 
-age = st.number_input("Age", 20, 100, 50)
-cholesterol = st.number_input("Cholesterol", 100, 600, 200)
-max_heart_rate = st.number_input("Max Heart Rate", 60, 220, 150)
-resting_bp = st.number_input("Resting Blood Pressure", 80, 200, 120)
-
-if st.button("Predict Risk"):
-    with st.spinner("Analyzing..."):
-        X = np.array([[age, cholesterol, max_heart_rate, resting_bp]])
-        prediction = model.predict(X)
-    if prediction[0] == 1:
-        st.error("⚠️ High Risk of Heart Disease")
-    else:
-        st.success("✅ Low Risk of Heart Disease")
-
-# --- مثال على رسم تفاعلي بالألوان ---
-st.subheader("Sample Heart Disease Trends")
-sample_df = pd.DataFrame({
-    "Age": np.random.randint(30, 80, 50),
-    "Cholesterol": np.random.randint(150, 300, 50),
-    "Risk": np.random.choice(["High", "Low"], 50)
+# ---------------------------
+# معلومات المتغيرات والنورمال رينج
+info_df = pd.DataFrame({
+    "Feature": [
+        "Age", "Sex", "Chest Pain Type (cp)", "Resting Blood Pressure (trestbps)",
+        "Serum Cholesterol (chol)", "Fasting Blood Sugar (fbs)",
+        "Resting ECG (restecg)", "Max Heart Rate (thalach)",
+        "Exercise Induced Angina (exang)", "ST Depression (oldpeak)",
+        "Slope", "Number of Major Vessels (ca)", "Thal"
+    ],
+    "Normal Range": [
+        "Adults 20–80 yrs", 
+        "Male/Female", 
+        "0–3 (typical/atypical angina etc.)", 
+        "90–120 mmHg", 
+        "< 200 mg/dl", 
+        "0 (≤120 mg/dl), 1 (>120 mg/dl)", 
+        "0–2 (normal to abnormal)", 
+        "140–190 bpm", 
+        "0 = No, 1 = Yes", 
+        "0–1 low ST depression", 
+        "0–2 slope types", 
+        "0–3 vessels", 
+        "0–3 thalassemia categories"
+    ],
+    "Meaning": [
+        "Age of patient", 
+        "Gender of patient", 
+        "Chest pain type", 
+        "Blood pressure at rest", 
+        "Cholesterol level in blood", 
+        "Blood sugar level after fasting", 
+        "ECG test results", 
+        "Max heart rate during exercise", 
+        "Angina caused by exercise", 
+        "ST depression induced by exercise", 
+        "Slope of peak exercise ST segment", 
+        "Number of major vessels seen in angiography", 
+        "Thalassemia status"
+    ]
 })
-fig = px.scatter(sample_df, x="Age", y="Cholesterol",
-                 color="Risk",
-                 size_max=10,
-                 title="Age vs Cholesterol with Risk Category",
-                 color_discrete_map={"High":"#FF4B4B","Low":"#4BFF4B"})
-st.plotly_chart(fig)
+
+with st.expander("ℹ️ Normal Ranges & Meaning of Features"):
+    st.dataframe(info_df)
+
+# ---------------------------
+# إدخال البيانات من المستخدم
+st.subheader("Enter Patient Data")
+
+age = st.slider("Age", 20, 80, 50)
+sex = st.selectbox("Sex", ["Male", "Female"])
+cp = st.selectbox("Chest Pain Type", [0, 1, 2, 3])
+trestbps = st.number_input("Resting Blood Pressure (mmHg)", 90, 200, 120)
+chol = st.number_input("Serum Cholestoral (mg/dl)", 100, 600, 200)
+fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl", [0, 1])
+restecg = st.selectbox("Resting ECG Results", [0, 1, 2])
+thalach = st.number_input("Maximum Heart Rate Achieved", 70, 220, 150)
+exang = st.selectbox("Exercise Induced Angina", [0, 1])
+oldpeak = st.number_input("ST Depression", 0.0, 6.0, 1.0)
+slope = st.selectbox("Slope of Peak Exercise ST", [0, 1, 2])
+ca = st.selectbox("Number of Major Vessels Colored", [0, 1, 2, 3, 4])
+thal = st.selectbox("Thal", [0, 1, 2, 3])
+
+# ---------------------------
+# Prediction Button
+if st.button("Predict"):
+    if model_loaded:
+        # تحويل الإدخالات لـ DataFrame
+        input_data = pd.DataFrame([[age, 1 if sex == "Male" else 0, cp, trestbps, chol,
+                                    fbs, restecg, thalach, exang, oldpeak, slope, ca, thal]],
+                                  columns=["age", "sex", "cp", "trestbps", "chol",
+                                           "fbs", "restecg", "thalach", "exang",
+                                           "oldpeak", "slope", "ca", "thal"])
+        # التنبؤ
+        prediction = model.predict(input_data)
+        if prediction[0] == 1:
+            st.error("⚠️ **High Risk**: The model predicts Heart Disease.\n\n"
+                     "👉 **Next Step**: This is not a diagnosis. Please consult a cardiologist for further evaluation.")
+        else:
+            st.success("✅ **Low Risk**: The model predicts No Heart Disease.")
+    else:
+        st.warning("Model not loaded — cannot predict.")
+
+# ---------------------------
+# Visualization Example
+st.subheader("Example Visualization")
+df = pd.DataFrame({
+    "Feature": ["Age", "Cholestoral", "Max HR"],
+    "Value": [age, chol, thalach]
+})
+fig = px.bar(df, x="Feature", y="Value", title="Patient Feature Overview")
+st.plotly_chart(fig, use_container_width=True)
+
+# ---------------------------
+st.caption("Built with Streamlit ❤️ — Predictions are estimates, not medical advice.")
