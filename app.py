@@ -8,7 +8,7 @@ from pathlib import Path
 # Page Config
 # ----------------------------
 st.set_page_config(
-    page_title="Heart Disease Risk Predictor",
+    page_title="Heart Disease ML Pipeline",
     page_icon="❤️",
     layout="centered"
 )
@@ -37,7 +37,9 @@ st.markdown(
 st.title("❤️ Heart Disease Risk Predictor")
 st.markdown(
     """
+    <div style='color:white'>
     This application helps you estimate the probability of having heart disease based on some medical measurements.
+    </div>
     """,
     unsafe_allow_html=True
 )
@@ -70,29 +72,18 @@ st.markdown(
 )
 
 # ----------------------------
-# Load Model Safely
+# Load Model
 # ----------------------------
 model_path = Path("models/final_model.pkl")
 model = None
-scaler = None
-
 if model_path.exists():
-    try:
-        loaded = joblib.load(model_path)
-        if isinstance(loaded, tuple) and len(loaded) == 2:
-            scaler, model = loaded
-        else:
-            model = loaded
-            scaler = None
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-else:
-    st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
+    model = joblib.load(model_path)
 
 # ----------------------------
 # Input Fields
 # ----------------------------
 st.subheader("Enter Your Details")
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -121,10 +112,6 @@ if st.button("Predict Risk"):
     else:
         input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                                 thalach, exang, oldpeak, slope, ca, thal]])
-        # Apply scaler if available
-        if scaler is not None:
-            input_data = scaler.transform(input_data)
-
         prediction = model.predict(input_data)
         if hasattr(model, "predict_proba"):
             probability = model.predict_proba(input_data)[0][1] * 100
