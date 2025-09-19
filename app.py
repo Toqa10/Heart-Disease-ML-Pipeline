@@ -8,21 +8,23 @@ from pathlib import Path
 # Page Config
 # ----------------------------
 st.set_page_config(
-    page_title="Heart Disease Risk Predictor",
+    page_title="Heart disease ML pipeline.html",
     page_icon="❤️",
     layout="centered"
 )
 
-# White background & black text
+# ----------------------------
+# White text style
+# ----------------------------
 st.markdown(
     """
     <style>
     body {
-        background-color: white;
-        color: black;
+        background-color: #000000; /* Black background */
+        color: white; /* White text */
     }
-    .stMarkdown {
-        color: black !important;
+    .stMarkdown, .stTitle, .stHeader, .stSubheader, .stExpander {
+        color: white !important;
     }
     </style>
     """,
@@ -30,48 +32,44 @@ st.markdown(
 )
 
 # ----------------------------
-# Title
+# Title & Description (White Text)
 # ----------------------------
 st.title("❤️ Heart Disease Risk Predictor")
-st.write(
-    "This application helps you estimate the probability of having heart disease based on some medical measurements."
+st.markdown(
+    """
+    <div style='color:white'>
+    This application helps you estimate the probability of having heart disease based on some medical measurements.
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 # ----------------------------
-# Quick Instructions (in main page, no sidebar)
+# Normal Ranges & Meaning of Features (White Text)
 # ----------------------------
-with st.expander("📋 Quick Instructions"):
-    st.markdown("""
-    - Make sure you have a trained model (pipeline) in **`models/final_model.pkl`**.  
-    - If not, upload the model file to `models/final_model.pkl`.  
-    - Enter your values below and click **Predict**.  
-    - The pipeline assumes the same order of features used during training:  
-    **['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal']**.
-    """)
-
-# ----------------------------
-# Normal Ranges and Notes
-# ----------------------------
-with st.expander("ℹ️ Normal Ranges & Meaning of Features"):
-    st.markdown("""
-    - **Age**: 20–79 years.  
-    - **Sex**: 1 = Male, 0 = Female.  
-    - **Chest Pain Type (cp)**: 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.  
-    - **Resting Blood Pressure (trestbps)**: Normal < 120 mm Hg.  
-    - **Cholesterol (chol)**: Desirable < 200 mg/dl.  
-    - **Fasting Blood Sugar (fbs)**: 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).  
-    - **Resting ECG (restecg)**: 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.  
-    - **Max Heart Rate Achieved (thalach)**: Normal depends on age; usually >100 bpm.  
-    - **Exercise Induced Angina (exang)**: 1 = Yes, 0 = No.  
-    - **Oldpeak**: ST depression induced by exercise. Normal < 1.0.  
-    - **Slope**: 0 = Upsloping, 1 = Flat, 2 = Downsloping.  
-    - **Ca**: Number of major vessels (0–3) colored by fluoroscopy.  
-    - **Thal**: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.  
-
-    **Interpretation:**  
-    - **Low Risk**: Maintain healthy lifestyle, regular check-ups.  
-    - **High Risk**: Visit a cardiologist for further evaluation.  
-    """)
+st.markdown(
+    """
+    <div style='color:white'>
+    <h4>Age: 20–79 years.</h4>
+    <p>Sex: 1 = Male, 0 = Female.</p>
+    <p>Chest Pain Type (cp): 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.</p>
+    <p>Resting Blood Pressure (trestbps): Normal < 120 mm Hg.</p>
+    <p>Cholesterol (chol): Desirable < 200 mg/dl.</p>
+    <p>Fasting Blood Sugar (fbs): 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).</p>
+    <p>Resting ECG (restecg): 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.</p>
+    <p>Max Heart Rate Achieved (thalach): Normal depends on age; usually >100 bpm.</p>
+    <p>Exercise Induced Angina (exang): 1 = Yes, 0 = No.</p>
+    <p>Oldpeak: ST depression induced by exercise. Normal < 1.0.</p>
+    <p>Slope: 0 = Upsloping, 1 = Flat, 2 = Downsloping.</p>
+    <p>Ca: Number of major vessels (0–3) colored by fluoroscopy.</p>
+    <p>Thal: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.</p>
+    <h4>Interpretation:</h4>
+    <p><b>Low Risk:</b> Maintain healthy lifestyle, regular check-ups.</p>
+    <p><b>High Risk:</b> Visit a cardiologist for further evaluation.</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ----------------------------
 # Load Model
@@ -118,7 +116,10 @@ if st.button("Predict Risk"):
         input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                                 thalach, exang, oldpeak, slope, ca, thal]])
         prediction = model.predict(input_data)
-        probability = model.predict_proba(input_data)[0][1] * 100
+        if hasattr(model, "predict_proba"):
+            probability = model.predict_proba(input_data)[0][1] * 100
+        else:
+            probability = 50.0  # default if model has no predict_proba
         
         if prediction[0] == 1:
             st.error(f"💔 High Risk of Heart Disease ({probability:.2f}% probability)")
