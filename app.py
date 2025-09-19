@@ -8,13 +8,13 @@ from pathlib import Path
 # Page Config
 # ----------------------------
 st.set_page_config(
-    page_title="Heart disease ML pipeline.html",
+    page_title="Heart Disease Risk Predictor",
     page_icon="❤️",
     layout="centered"
 )
 
 # ----------------------------
-# White text style
+# Styling (Black background + White text)
 # ----------------------------
 st.markdown(
     """
@@ -32,7 +32,7 @@ st.markdown(
 )
 
 # ----------------------------
-# Title & Description (White Text)
+# Title & Description
 # ----------------------------
 st.title("❤️ Heart Disease Risk Predictor")
 st.markdown(
@@ -45,27 +45,27 @@ st.markdown(
 )
 
 # ----------------------------
-# Normal Ranges & Meaning of Features (White Text)
+# Normal Ranges & Meaning of Features
 # ----------------------------
 st.markdown(
     """
     <div style='color:white'>
-    <h4>Age: 20–79 years.</h4>
-    <p>Sex: 1 = Male, 0 = Female.</p>
-    <p>Chest Pain Type (cp): 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.</p>
-    <p>Resting Blood Pressure (trestbps): Normal < 120 mm Hg.</p>
-    <p>Cholesterol (chol): Desirable < 200 mg/dl.</p>
-    <p>Fasting Blood Sugar (fbs): 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).</p>
-    <p>Resting ECG (restecg): 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.</p>
-    <p>Max Heart Rate Achieved (thalach): Normal depends on age; usually >100 bpm.</p>
-    <p>Exercise Induced Angina (exang): 1 = Yes, 0 = No.</p>
-    <p>Oldpeak: ST depression induced by exercise. Normal < 1.0.</p>
-    <p>Slope: 0 = Upsloping, 1 = Flat, 2 = Downsloping.</p>
-    <p>Ca: Number of major vessels (0–3) colored by fluoroscopy.</p>
-    <p>Thal: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.</p>
-    <h4>Interpretation:</h4>
-    <p><b>Low Risk:</b> Maintain healthy lifestyle, regular check-ups.</p>
-    <p><b>High Risk:</b> Visit a cardiologist for further evaluation.</p>
+    <h4>Features:</h4>
+    <ul>
+    <li>Age: 20–79 years.</li>
+    <li>Sex: 1 = Male, 0 = Female.</li>
+    <li>Chest Pain Type (cp): 0–3.</li>
+    <li>Resting Blood Pressure (trestbps): Normal < 120 mm Hg.</li>
+    <li>Cholesterol (chol): Desirable < 200 mg/dl.</li>
+    <li>Fasting Blood Sugar (fbs): 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).</li>
+    <li>Resting ECG (restecg): 0–2.</li>
+    <li>Max Heart Rate Achieved (thalach): >100 bpm.</li>
+    <li>Exercise Induced Angina (exang): 1 = Yes, 0 = No.</li>
+    <li>Oldpeak: ST depression induced by exercise. Normal < 1.0.</li>
+    <li>Slope: 0–2.</li>
+    <li>Ca: Number of major vessels (0–3).</li>
+    <li>Thal: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.</li>
+    </ul>
     </div>
     """,
     unsafe_allow_html=True
@@ -74,10 +74,7 @@ st.markdown(
 # ----------------------------
 # Load Model
 # ----------------------------
-from pathlib import Path
 model_path = Path("models/final_model.pkl")
-
-
 
 if model_path.exists():
     model = joblib.load(model_path)
@@ -86,9 +83,38 @@ else:
     st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
 
 # ----------------------------
-# Input Fields
+# Upload CSV File
 # ----------------------------
-st.subheader("Enter Your Details")
+st.subheader("📂 Upload CSV for Bulk Prediction")
+uploaded_file = st.file_uploader("Upload CSV file with patient data", type=["csv"])
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.write("Preview of uploaded data:")
+    st.dataframe(df)
+
+    if model is not None:
+        predictions = model.predict(df)
+        if hasattr(model, "predict_proba"):
+            probabilities = model.predict_proba(df)[:, 1] * 100
+        else:
+            probabilities = [50.0] * len(predictions)
+
+        results = pd.DataFrame({
+            "Prediction": ["💔 High Risk" if p == 1 else "💚 Low Risk" for p in predictions],
+            "Probability (%)": probabilities
+        })
+        st.write("Results:")
+        st.dataframe(results)
+    else:
+        st.error("⚠️ Model not available. Please upload the model file first.")
+
+st.markdown("---")
+
+# ----------------------------
+# Manual Input
+# ----------------------------
+st.subheader("📝 Or Enter Details Manually")
 
 col1, col2 = st.columns(2)
 
@@ -110,11 +136,11 @@ with col2:
     thal = st.selectbox("Thal (1=Normal,2=Fixed defect,3=Reversible defect)", [1, 2, 3])
 
 # ----------------------------
-# Prediction
+# Prediction for Manual Input
 # ----------------------------
 if st.button("Predict Risk"):
     if model is None:
-        st.error("Model not available. Please upload the model file first.")
+        st.error("⚠️ Model not available. Please upload the model file first.")
     else:
         input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                                 thalach, exang, oldpeak, slope, ca, thal]])
