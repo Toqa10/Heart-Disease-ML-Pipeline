@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
@@ -13,12 +14,15 @@ st.set_page_config(
 )
 
 # ----------------------------
-# White text style on black background
+# White text style
 # ----------------------------
 st.markdown(
     """
     <style>
-    body { background-color: #000000; color: white; }
+    body {
+        background-color: #000000; /* Black background */
+        color: white; /* White text */
+    }
     .stMarkdown, .stTitle, .stHeader, .stSubheader, .stExpander {
         color: white !important;
     }
@@ -43,45 +47,52 @@ st.markdown(
 # ----------------------------
 st.markdown(
     """
-    <div>
-    <h4>Age:</h4> 20–79 years.<br>
-    <h4>Sex:</h4> 1 = Male, 0 = Female.<br>
-    <h4>Chest Pain Type (cp):</h4> 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.<br>
-    <h4>Resting Blood Pressure (trestbps):</h4> Normal < 120 mm Hg.<br>
-    <h4>Cholesterol (chol):</h4> Desirable < 200 mg/dl.<br>
-    <h4>Fasting Blood Sugar (fbs):</h4> 1 = >120 mg/dl, 0 = <120 mg/dl.<br>
-    <h4>Resting ECG (restecg):</h4> 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.<br>
-    <h4>Max Heart Rate Achieved (thalach):</h4> Normal >100 bpm.<br>
-    <h4>Exercise Induced Angina (exang):</h4> 1 = Yes, 0 = No.<br>
-    <h4>Oldpeak:</h4> ST depression induced by exercise. Normal < 1.0.<br>
-    <h4>Slope:</h4> 0 = Upsloping, 1 = Flat, 2 = Downsloping.<br>
-    <h4>Ca:</h4> Number of major vessels (0–3) colored by fluoroscopy.<br>
-    <h4>Thal:</h4> 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.<br>
+    <div style='color:white'>
+    <h4>Age: 20–79 years.</h4>
+    <p>Sex: 1 = Male, 0 = Female.</p>
+    <p>Chest Pain Type (cp): 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.</p>
+    <p>Resting Blood Pressure (trestbps): Normal < 120 mm Hg.</p>
+    <p>Cholesterol (chol): Desirable < 200 mg/dl.</p>
+    <p>Fasting Blood Sugar (fbs): 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).</p>
+    <p>Resting ECG (restecg): 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.</p>
+    <p>Max Heart Rate Achieved (thalach): Normal depends on age; usually >100 bpm.</p>
+    <p>Exercise Induced Angina (exang): 1 = Yes, 0 = No.</p>
+    <p>Oldpeak: ST depression induced by exercise. Normal < 1.0.</p>
+    <p>Slope: 0 = Upsloping, 1 = Flat, 2 = Downsloping.</p>
+    <p>Ca: Number of major vessels (0–3) colored by fluoroscopy.</p>
+    <p>Thal: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.</p>
     <h4>Interpretation:</h4>
-    Low Risk: Maintain healthy lifestyle, regular check-ups.<br>
-    High Risk: Visit a cardiologist for further evaluation.
+    <p><b>Low Risk:</b> Maintain healthy lifestyle, regular check-ups.</p>
+    <p><b>High Risk:</b> Visit a cardiologist for further evaluation.</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
 # ----------------------------
-# Load model
+# Load Model Safely
 # ----------------------------
 model_path = Path("models/final_model.pkl")
+model = None
+scaler = None
+
 if model_path.exists():
-    # Load tuple: (scaler, model)
-    scaler, model = joblib.load(model_path)
+    try:
+        loaded = joblib.load(model_path)
+        if isinstance(loaded, tuple) and len(loaded) == 2:
+            scaler, model = loaded
+        else:
+            model = loaded
+            scaler = None
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
 else:
-    model = None
-    scaler = None
     st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
 
 # ----------------------------
 # Input Fields
 # ----------------------------
 st.subheader("Enter Your Details")
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -105,15 +116,21 @@ with col2:
 # Prediction
 # ----------------------------
 if st.button("Predict Risk"):
-    if model is None or scaler is None:
+    if model is None:
         st.error("Model not available. Please upload the model file first.")
     else:
         input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                                 thalach, exang, oldpeak, slope, ca, thal]])
-        input_scaled = scaler.transform(input_data)
-        prediction = model.predict(input_scaled)
-        probability = model.predict_proba(input_scaled)[0][1] * 100
+        # Apply scaler if available
+        if scaler is not None:
+            input_data = scaler.transform(input_data)
 
+        prediction = model.predict(input_data)
+        if hasattr(model, "predict_proba"):
+            probability = model.predict_proba(input_data)[0][1] * 100
+        else:
+            probability = 50.0  # default if model has no predict_proba
+        
         if prediction[0] == 1:
             st.error(f"💔 High Risk of Heart Disease ({probability:.2f}% probability)")
             st.markdown("**Advice:** Please consult a cardiologist for further evaluation.")
