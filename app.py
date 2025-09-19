@@ -74,10 +74,20 @@ st.markdown(
 # ----------------------------
 # Load Model
 # ----------------------------
+# Load model safely
 model_path = Path("models/final_model.pkl")
+
 model = None
 if model_path.exists():
-    model = joblib.load(model_path)
+    try:
+        model = joblib.load(model_path)
+    except Exception as e:
+        st.error("❌ Error loading model. Please make sure the file is correct.")
+        st.stop()
+else:
+    st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
+    st.stop()
+
 
 # ----------------------------
 # Input Fields
