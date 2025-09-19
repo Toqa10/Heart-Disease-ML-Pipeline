@@ -74,7 +74,8 @@ st.markdown(
 # ----------------------------
 # Load Model
 # ----------------------------
-model_path = Path("models/final_model.pkl")
+model_path = Path("final_model.pkl")
+
 
 if model_path.exists():
     model = joblib.load(model_path)
