@@ -1,222 +1,128 @@
-# app.py
-import os
-import io
-import joblib
 import streamlit as st
 import pandas as pd
 import numpy as np
+import joblib
+from pathlib import Path
 
-# Plotly optional (fallback to simple bar if not installed)
-try:
-    import plotly.express as px
-    PLOTLY_AVAILABLE = True
-except Exception:
-    PLOTLY_AVAILABLE = False
-
-# ---------------- Page config ----------------
+# ----------------------------
+# Page Config
+# ----------------------------
 st.set_page_config(
     page_title="Heart Disease Risk Predictor",
     page_icon="❤️",
-    layout="centered",
-    initial_sidebar_state="expanded"
+    layout="centered"
 )
 
-# ---------------- Styles (black text, light background) ----------------
+# White background & black text
 st.markdown(
     """
     <style>
-    /* Background and text color */
-    .stApp {
-        background-color: #f7f7f7;
-        color: #000000;
+    body {
+        background-color: white;
+        color: black;
     }
-    /* Buttons styling */
-    .stButton>button {
-        background-color: #d90429;
-        color: white;
-        border-radius: 8px;
-        height: 3em;
-        font-size: 16px;
-    }
-    /* Headings color */
-    h1, h2, h3, h4 {
-        color: #000000;
-    }
-    /* Make dataframe text black */
-    .stDataFrame td, .stDataFrame th {
-        color: #000000;
+    .stMarkdown {
+        color: black !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# ---------------- Header ----------------
-st.title("تطبيق تقييم خطر أمراض القلب")
-st.write("هذا التطبيق يساعد على تقييم احتمالية وجود مرض قلبي بناءً على قياسات طبية شائعة. النتائج مجرد تقدير ولا تُعد تشخيصًا طبيًا.")
-
-# ---------------- Model loading / upload ----------------
-MODEL_DIR = "models"
-MODEL_PATH = os.path.join(MODEL_DIR, "final_model.pkl")
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-model = None
-model_loaded = False
-
-# If model exists on disk, try to load it
-if os.path.exists(MODEL_PATH):
-    try:
-        model = joblib.load(MODEL_PATH)
-        model_loaded = True
-        st.success("✅ تم تحميل الموديل من المسار: models/final_model.pkl")
-    except Exception as e:
-        st.warning("⚠️ وُجد ملف موديل لكن حدث خطأ عند تحميله. يمكنك إعادة رفعه من هنا أو استبداله.")
-        st.error(str(e))
-
-# Allow user to upload model if not loaded
-if not model_loaded:
-    st.info("لم يتم العثور على موديل جاهز. يمكنك رفع ملف الموديل هنا (final_model.pkl).")
-    uploaded_model = st.file_uploader("رفع ملف الموديل (.pkl)", type=["pkl", "joblib"], accept_multiple_files=False)
-    if uploaded_model is not None:
-        try:
-            # save uploaded model to models/final_model.pkl
-            bytes_data = uploaded_model.read()
-            with open(MODEL_PATH, "wb") as f:
-                f.write(bytes_data)
-            model = joblib.load(MODEL_PATH)
-            model_loaded = True
-            st.success("✅ تم رفع وحفظ الموديل بنجاح في models/final_model.pkl")
-        except Exception as e:
-            st.error("حدث خطأ عند حفظ أو تحميل الموديل: " + str(e))
-
-# ---------------- Sidebar: quick instructions ----------------
-with st.sidebar:
-    st.header("تعليمات سريعة")
-    st.write("""
-    1. تأكدي من وجود موديل مدرّب (pipeline) في `models/final_model.pkl`.  
-    2. إن لم يكن، ارفعي ملف الموديل من هنا.  
-    3. أدخلي القيم ثم اضغطي Predict.  
-    """)
-    st.markdown("---")
-    st.write("**ملاحظة:** النموذج يفترض أن الـ pipeline يتضمن نفس ترتيب وسمات (features) المستخدمة في التدريب:") 
-    st.write("`['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal']`")
-
-# ---------------- Image (real heart) ----------------
-st.image(
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Heart_anatomy_labeled.svg/800px-Heart_anatomy_labeled.svg.png",
-    width=200,
-    caption="صورة توضيحية للقلب"
+# ----------------------------
+# Title
+# ----------------------------
+st.title("❤️ Heart Disease Risk Predictor")
+st.write(
+    "This application helps you estimate the probability of having heart disease based on some medical measurements."
 )
 
-# ---------------- Normal ranges & feature meanings ----------------
-st.subheader("ℹ️ Normal Ranges & معنى كل متغير")
-info_df = pd.DataFrame({
-    "الميزة (Feature)": [
-        "age", "sex", "cp", "trestbps", "chol",
-        "fbs", "restecg", "thalach", "exang", "oldpeak",
-        "slope", "ca", "thal"
-    ],
-    "النطاق الطبيعي (تقريبًا)": [
-        "20–80 سنة", "0=Female, 1=Male", "0–3 (أنواع ألم الصدر)", "90–120 mmHg", "<200 mg/dl",
-        "0 (≤120mg/dl) أو 1 (>120mg/dl)", "0–2 (نتيجة ECG)", "140–190 bpm (يعتمد على العمر)", "0 أو 1", "0.0–1.5 تقريبًا",
-        "0–2 (نوع الميل في ST)", "0–3 (عدد الأوعية الملونة)", "0–3 (حالة الثال)"
-    ],
-    "ماذا يعني/ماذا نفهم منه؟": [
-        "عمر المريض", "الجنس (ذكر/أنثى)", "نوع ألم الصدر (نشاط/غيره)", "ضغط الدم أثناء الراحة",
-        "كوليسترول الدم", "مستوى السكر بعد صيام", "نتائج رسم القلب الراحة", "أقصى معدل ضربات قلب أثناء الإجهاد",
-        "هل سبب التمرين ذبحة؟", "انخفاض ST بعد التمرين (قيمة تقييمية)", "ميل مقطع ST", "أوعية القلب الرئيسية التي تظهر بالتصوير",
-        "تصنيف ثال/ثلاسيميا في البيانات"
-    ]
-})
-with st.expander("عرض الشرح المفصل للنطاقات والمعاني"):
-    st.dataframe(info_df, use_container_width=True)
+# ----------------------------
+# Quick Instructions (in main page, no sidebar)
+# ----------------------------
+with st.expander("📋 Quick Instructions"):
+    st.markdown("""
+    - Make sure you have a trained model (pipeline) in **`models/final_model.pkl`**.  
+    - If not, upload the model file to `models/final_model.pkl`.  
+    - Enter your values below and click **Predict**.  
+    - The pipeline assumes the same order of features used during training:  
+    **['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal']**.
+    """)
 
-# ---------------- Input form ----------------
-st.subheader("أدخل بيانات المريض")
+# ----------------------------
+# Normal Ranges and Notes
+# ----------------------------
+with st.expander("ℹ️ Normal Ranges & Meaning of Features"):
+    st.markdown("""
+    - **Age**: 20–79 years.  
+    - **Sex**: 1 = Male, 0 = Female.  
+    - **Chest Pain Type (cp)**: 0 = Typical Angina, 1 = Atypical Angina, 2 = Non-anginal Pain, 3 = Asymptomatic.  
+    - **Resting Blood Pressure (trestbps)**: Normal < 120 mm Hg.  
+    - **Cholesterol (chol)**: Desirable < 200 mg/dl.  
+    - **Fasting Blood Sugar (fbs)**: 1 = >120 mg/dl (high), 0 = <120 mg/dl (normal).  
+    - **Resting ECG (restecg)**: 0 = Normal, 1 = ST-T abnormality, 2 = Left Ventricular Hypertrophy.  
+    - **Max Heart Rate Achieved (thalach)**: Normal depends on age; usually >100 bpm.  
+    - **Exercise Induced Angina (exang)**: 1 = Yes, 0 = No.  
+    - **Oldpeak**: ST depression induced by exercise. Normal < 1.0.  
+    - **Slope**: 0 = Upsloping, 1 = Flat, 2 = Downsloping.  
+    - **Ca**: Number of major vessels (0–3) colored by fluoroscopy.  
+    - **Thal**: 1 = Normal, 2 = Fixed defect, 3 = Reversible defect.  
+
+    **Interpretation:**  
+    - **Low Risk**: Maintain healthy lifestyle, regular check-ups.  
+    - **High Risk**: Visit a cardiologist for further evaluation.  
+    """)
+
+# ----------------------------
+# Load Model
+# ----------------------------
+model_path = Path("models/final_model.pkl")
+
+if model_path.exists():
+    model = joblib.load(model_path)
+else:
+    model = None
+    st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
+
+# ----------------------------
+# Input Fields
+# ----------------------------
+st.subheader("Enter Your Details")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    age = st.number_input("Age (العمر)", min_value=18, max_value=120, value=50)
-    sex_str = st.selectbox("Sex (الجنس)", ["Female", "Male"])
-    cp = st.selectbox("Chest Pain Type (cp)", [0, 1, 2, 3], index=0)
-    trestbps = st.number_input("Resting Blood Pressure (trestbps, mmHg)", min_value=70, max_value=250, value=120)
-    chol = st.number_input("Serum Cholesterol (chol, mg/dl)", min_value=100, max_value=600, value=200)
-    fbs = st.selectbox("Fasting Blood Sugar > 120 mg/dl (fbs)", [0, 1], index=0)
+    age = st.number_input("Age", 20, 100, 40)
+    sex = st.selectbox("Sex (1=Male, 0=Female)", [1, 0])
+    cp = st.selectbox("Chest Pain Type (0–3)", [0, 1, 2, 3])
+    trestbps = st.number_input("Resting Blood Pressure (mm Hg)", 80, 200, 120)
+    chol = st.number_input("Cholesterol (mg/dl)", 100, 400, 200)
+    fbs = st.selectbox("Fasting Blood Sugar >120 mg/dl (1=yes,0=no)", [1, 0])
+    restecg = st.selectbox("Resting ECG (0–2)", [0, 1, 2])
 
 with col2:
-    restecg = st.selectbox("Resting ECG (restecg)", [0, 1, 2], index=0)
-    thalach = st.number_input("Max Heart Rate Achieved (thalach)", min_value=50, max_value=220, value=150)
-    exang = st.selectbox("Exercise Induced Angina (exang)", [0, 1], index=0)
-    oldpeak = st.number_input("ST Depression (oldpeak)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
-    slope = st.selectbox("Slope of peak exercise ST segment (slope)", [0, 1, 2], index=1)
-    ca = st.selectbox("Number of major vessels (ca)", [0, 1, 2, 3, 4], index=0)
-    thal = st.selectbox("Thal (thalassemia)", [0, 1, 2, 3], index=0)
+    thalach = st.number_input("Max Heart Rate Achieved", 60, 220, 150)
+    exang = st.selectbox("Exercise Induced Angina (1=yes,0=no)", [1, 0])
+    oldpeak = st.number_input("Oldpeak (ST depression)", 0.0, 6.0, 1.0, step=0.1)
+    slope = st.selectbox("Slope (0–2)", [0, 1, 2])
+    ca = st.selectbox("Number of Major Vessels (0–3)", [0, 1, 2, 3])
+    thal = st.selectbox("Thal (1=Normal,2=Fixed defect,3=Reversible defect)", [1, 2, 3])
 
-sex = 1 if sex_str == "Male" else 0
-
-# ---------------- Prediction button ----------------
-st.markdown("---")
-predict_btn = st.button("🔍 Predict Risk")
-
-if predict_btn:
-    if not model_loaded:
-        st.error("لا يوجد موديل محمّل. ارفع ملف موديل صالح (final_model.pkl) في الشريط الجانبي أولًا.")
+# ----------------------------
+# Prediction
+# ----------------------------
+if st.button("Predict Risk"):
+    if model is None:
+        st.error("Model not available. Please upload the model file first.")
     else:
-        # Create dataframe with expected column order
-        input_df = pd.DataFrame([[
-            age, sex, cp, trestbps, chol, fbs, restecg,
-            thalach, exang, oldpeak, slope, ca, thal
-        ]], columns=['age','sex','cp','trestbps','chol','fbs','restecg','thalach','exang','oldpeak','slope','ca','thal'])
-
-        # Try prediction and probability gracefully
-        try:
-            pred = model.predict(input_df)[0]
-            proba = None
-            if hasattr(model, "predict_proba"):
-                proba = model.predict_proba(input_df)[0][1]  # probability of class 1
-            elif hasattr(model, "decision_function"):
-                # rough mapping: use logistic on decision_function is not implemented here; fallback to None
-                proba = None
-
-            # Show results
-            if pred == 1:
-                st.error(f"⚠️ التوقع: **خطر مرتفع** لوجود مرض قلبي.")
-            else:
-                st.success("✅ التوقع: **خطر منخفض** لوجود مرض قلبي.")
-
-            if proba is not None:
-                st.write(f"احتمالية وجود المرض حسب النموذج: **{proba * 100:.2f}%**")
-            else:
-                st.write("النموذج لا يدعم إرجاع احتمال (predict_proba).")
-
-            # Actionable advice
-            st.markdown("### ماذا تفعل إذا كانت النتيجة High Risk؟")
-            st.markdown("""
-            - لا تعتبر هذه النتيجة تشخيصًا نهائيًا، لكنها مؤشر لزيارة طبيب قلب (Cardiologist) لإجراء فحوصات إضافية مثل ECG، Echo، أو اختبارات إجهاد.  
-            - تحسينات فورية ممكنة: التوقف عن التدخين، تقليل الأطعمة الغنية بالدهون المشبعة، ممارسة نشاط بدني منتظم، مراقبة وضبط ضغط الدم والكوليسترول.  
-            - في الحالات الطارئة (ألم صدر مفاجئ، ضيق تنفُّس شديد، إغماء) اتصلي بالطوارئ فورًا.
-            """)
-
-        except Exception as e:
-            st.error("حدث خطأ أثناء التنبؤ: " + str(e))
-
-# ---------------- Visualization (simple) ----------------
-st.markdown("---")
-st.subheader("عرض سريع للقياسات الخاصة بالمستخدم")
-
-display_df = pd.DataFrame({
-    "Feature": ["age", "chol", "trestbps", "thalach", "oldpeak"],
-    "Value": [age, chol, trestbps, thalach, oldpeak]
-})
-
-if PLOTLY_AVAILABLE:
-    fig = px.bar(display_df, x="Feature", y="Value", title="Patient Metrics Overview",
-                 color="Feature", color_discrete_sequence=px.colors.qualitative.Dark2)
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.table(display_df)
-
-# ---------------- Footer ----------------
-st.markdown("---")
-st.caption("ملاحظة: هذا التطبيق للتجريب والتعليم فقط — النتائج ليست بديلاً عن الاستشارة الطبية.")
+        input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
+                                thalach, exang, oldpeak, slope, ca, thal]])
+        prediction = model.predict(input_data)
+        probability = model.predict_proba(input_data)[0][1] * 100
+        
+        if prediction[0] == 1:
+            st.error(f"💔 High Risk of Heart Disease ({probability:.2f}% probability)")
+            st.markdown("**Advice:** Please consult a cardiologist for further evaluation.")
+        else:
+            st.success(f"💚 Low Risk of Heart Disease ({probability:.2f}% probability)")
+            st.markdown("**Advice:** Maintain a healthy lifestyle and regular check-ups.")
