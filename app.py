@@ -8,7 +8,7 @@ from pathlib import Path
 # Page Config
 # ----------------------------
 st.set_page_config(
-    page_title="Heart Disease ML Pipeline",
+    page_title="Heart Disease Risk Predictor",
     page_icon="❤️",
     layout="centered"
 )
@@ -74,26 +74,20 @@ st.markdown(
 # ----------------------------
 # Load Model
 # ----------------------------
-# Load model safely
 model_path = Path("models/final_model.pkl")
-
 model = None
-if model_path.exists():
-    try:
-        model = joblib.load(model_path)
-    except Exception as e:
-        st.error("❌ Error loading model. Please make sure the file is correct.")
-        st.stop()
-else:
-    st.warning("⚠️ Model file not found. Please place it in 'models/final_model.pkl'")
-    st.stop()
 
+try:
+    if model_path.exists():
+        model = joblib.load(model_path)
+except Exception as e:
+    # لو حصل أي خطأ في تحميل الموديل
+    model = None
 
 # ----------------------------
 # Input Fields
 # ----------------------------
 st.subheader("Enter Your Details")
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -118,15 +112,14 @@ with col2:
 # ----------------------------
 if st.button("Predict Risk"):
     if model is None:
-        st.error("Model not available. Please upload the model file first.")
+        st.warning("⚠️ Model not loaded. Predictions are disabled until a valid model is placed in 'models/final_model.pkl'.")
     else:
         input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
                                 thalach, exang, oldpeak, slope, ca, thal]])
         prediction = model.predict(input_data)
+        probability = 50.0
         if hasattr(model, "predict_proba"):
             probability = model.predict_proba(input_data)[0][1] * 100
-        else:
-            probability = 50.0  # default if model has no predict_proba
         
         if prediction[0] == 1:
             st.error(f"💔 High Risk of Heart Disease ({probability:.2f}% probability)")
